@@ -89,32 +89,41 @@ class SpatialAudioHandler:
         """
         # Try to get audio from various message types
         audio_file = None
+        download_msg = message  # Track which message to download from
         
         # Check audio message (user sends audio directly)
         if message.audio:
             audio_file = message.audio
+            download_msg = message
         # Check document (can be audio file)
         elif message.document:
             # Only accept audio documents
             if message.document.mime_type and 'audio' in message.document.mime_type:
                 audio_file = message.document
+                download_msg = message
         # Check voice message
         elif message.voice:
             audio_file = message.voice
+            download_msg = message
         # Check video with audio (MP4, MKV, etc.)
         elif message.video:
             audio_file = message.video
+            download_msg = message
         # Check reply to audio
         elif message.reply_to_message:
             reply = message.reply_to_message
             if reply.audio:
                 audio_file = reply.audio
+                download_msg = reply
             elif reply.document and reply.document.mime_type and 'audio' in reply.document.mime_type:
                 audio_file = reply.document
+                download_msg = reply
             elif reply.voice:
                 audio_file = reply.voice
+                download_msg = reply
             elif reply.video:
                 audio_file = reply.video
+                download_msg = reply
         
         if not audio_file:
             await message.reply_text(
@@ -140,13 +149,34 @@ class SpatialAudioHandler:
         # Download file
         try:
             logger.info(f"📥 Downloading audio from user {message.from_user.id}...")
-            file_path = await message.download(file_name=None)
+            
+            # Download from the correct message object
+            file_path = None
+            try:
+                file_path = await download_msg.download(file_name=None)
+            except Exception as dl_err:
+                logger.error(f"Download attempt 1 failed: {dl_err}")
+                # Try fallback
+                try:
+                    file_path = await message.download(file_name=None)
+                except Exception as dl_err2:
+                    logger.error(f"Download attempt 2 failed: {dl_err2}")
+                    file_path = None
             
             if not file_path:
-                await message.reply_text("❌ Failed to download audio file")
+                await message.reply_text(
+                    "❌ <b>Failed to download audio</b>\n\n"
+                    "Please try sending the file again.\n"
+                    "Tip: Send audio directly (without caption) for best results."
+                )
                 return None
             
             file_path = Path(file_path)
+            
+            # Verify file exists
+            if not file_path.exists():
+                await message.reply_text("❌ Downloaded file not found")
+                return None
             
             # Get audio info
             sr, channels, duration = engine.get_audio_info(file_path)
@@ -179,7 +209,7 @@ class SpatialAudioHandler:
         
         except Exception as e:
             logger.error(f"Error validating audio: {e}")
-            await message.reply_text(f"❌ <b>Error processing file:</b>\nde>{e}</code>")
+            await message.reply_text(f"❌ <b>Error processing file:</b>\nde>{str(e)[:100]}</code>")
             return None
     
     @staticmethod
@@ -245,7 +275,7 @@ class SpatialAudioHandler:
             except Exception as e:
                 logger.error(f"Error reading file: {e}")
                 await status_msg.edit_text(
-                    f"❌ <b>Error reading file:</b>\nde>{e}</code>"
+                    f"❌ <b>Error reading file:</b>\nde>{str(e)[:100]}</code>"
                 )
                 input_path.unlink(missing_ok=True)
                 return
@@ -308,7 +338,7 @@ class SpatialAudioHandler:
                         error_msg = task.error or "Unknown error"
                         await status_msg.edit_text(
                             f"❌ <b>Processing Failed</b>\n\n"
-                            f"de>{error_msg}</code>"
+                            f"de>{error_msg[:200]}</code>"
                         )
                 
                 except Exception as e:
@@ -338,7 +368,7 @@ class SpatialAudioHandler:
         
         except Exception as e:
             logger.error(f"Error in spatialize handler: {e}")
-            await message.reply_text(f"❌ <b>Error:</b>\nde>{e}</code>")
+            await message.reply_text(f"❌ <b>Error:</b>\nde>{str(e)[:200]}</code>")
             input_path.unlink(missing_ok=True)
 
 
