@@ -84,15 +84,46 @@ class SpatialAudioHandler:
     @staticmethod
     async def _validate_audio(message: Message) -> Optional[tuple]:
         """
-        Validate audio file and return (file_path, duration, channels)
-        Returns None if validation fails
+        Validate audio file - handle both standalone audio and audio with caption
+        Returns (file_path, duration, channels) or None
         """
-        audio_file = message.audio or message.document or message.video or message.voice
+        # Try to get audio from various message types
+        audio_file = None
+        
+        # Check audio message (user sends audio directly)
+        if message.audio:
+            audio_file = message.audio
+        # Check document (can be audio file)
+        elif message.document:
+            # Only accept audio documents
+            if message.document.mime_type and 'audio' in message.document.mime_type:
+                audio_file = message.document
+        # Check voice message
+        elif message.voice:
+            audio_file = message.voice
+        # Check video with audio (MP4, MKV, etc.)
+        elif message.video:
+            audio_file = message.video
+        # Check reply to audio
+        elif message.reply_to_message:
+            reply = message.reply_to_message
+            if reply.audio:
+                audio_file = reply.audio
+            elif reply.document and reply.document.mime_type and 'audio' in reply.document.mime_type:
+                audio_file = reply.document
+            elif reply.voice:
+                audio_file = reply.voice
+            elif reply.video:
+                audio_file = reply.video
         
         if not audio_file:
             await message.reply_text(
-                "❌ **No audio file found**\n\n"
-                "Please send an audio file (MP3, WAV, M4A, FLAC, OGG, etc.)"
+                "❌ <b>No audio file found</b>\n\n"
+                "Please send an audio file (MP3, WAV, M4A, FLAC, OGG, etc.)\n\n"
+                "You can:\n"
+                "• Send audio directly\n"
+                "• Reply to an audio message with /spatialize\n"
+                "• Send audio as document"
             )
             return None
         
@@ -100,7 +131,7 @@ class SpatialAudioHandler:
         file_size = audio_file.file_size or 0
         if file_size > MAX_FILE_SIZE:
             await message.reply_text(
-                f"❌ **File too large**\n\n"
+                f"❌ <b>File too large</b>\n\n"
                 f"Max size: {MAX_FILE_SIZE / (1024*1024):.0f} MB\n"
                 f"Your file: {file_size / (1024*1024):.1f} MB"
             )
@@ -129,7 +160,7 @@ class SpatialAudioHandler:
             if duration > MAX_DURATION:
                 file_path.unlink(missing_ok=True)
                 await message.reply_text(
-                    f"❌ **Audio too long**\n\n"
+                    f"❌ <b>Audio too long</b>\n\n"
                     f"Max duration: {MAX_DURATION}s ({MAX_DURATION//60}m)\n"
                     f"Your audio: {duration:.0f}s ({duration/60:.1f}m)"
                 )
@@ -138,7 +169,7 @@ class SpatialAudioHandler:
             if duration < MIN_DURATION:
                 file_path.unlink(missing_ok=True)
                 await message.reply_text(
-                    f"❌ **Audio too short**\n\n"
+                    f"❌ <b>Audio too short</b>\n\n"
                     f"Minimum: {MIN_DURATION} seconds"
                 )
                 return None
@@ -148,7 +179,7 @@ class SpatialAudioHandler:
         
         except Exception as e:
             logger.error(f"Error validating audio: {e}")
-            await message.reply_text(f"❌ **Error processing file:**\n`{e}`")
+            await message.reply_text(f"❌ <b>Error processing file:</b>\nde>{e}</code>")
             return None
     
     @staticmethod
@@ -164,7 +195,7 @@ class SpatialAudioHandler:
         # Rate limit check
         if not SpatialAudioHandler._check_rate_limit(user_id):
             await message.reply_text(
-                "⏰ **Rate limit exceeded**\n\n"
+                "⏰ <b>Rate limit exceeded</b>\n\n"
                 "Max: 10 requests per hour\n"
                 "Max: 2 concurrent processes\n\n"
                 "Try again later!"
@@ -183,9 +214,8 @@ class SpatialAudioHandler:
             if preset_name not in PRESETS:
                 input_path.unlink(missing_ok=True)
                 await message.reply_text(
-                    f"❌ **Unknown preset: {preset_name}**\n\n"
-                    + list_presets(),
-                    parse_mode="markdown"
+                    f"❌ <b>Unknown preset: {preset_name}</b>\n\n"
+                    + list_presets()
                 )
                 return
             
@@ -193,10 +223,10 @@ class SpatialAudioHandler:
             
             # Send initial status
             status_msg = await message.reply_text(
-                f"🎵 **Processing Audio**\n\n"
-                f"Preset: **{preset.name}**\n"
-                f"Duration: `{duration:.1f}s`\n"
-                f"Channels: `{channels}`\n\n"
+                f"🎵 <b>Processing Audio</b>\n\n"
+                f"Preset: <b>{preset.name}</b>\n"
+                f"Duration: de>{duration:.1f}s</code>\n"
+                f"Channels: de>{channels}</code>\n\n"
                 f"⏳ Starting..."
             )
             
@@ -215,7 +245,7 @@ class SpatialAudioHandler:
             except Exception as e:
                 logger.error(f"Error reading file: {e}")
                 await status_msg.edit_text(
-                    f"❌ **Error reading file:**\n`{e}`"
+                    f"❌ <b>Error reading file:</b>\nde>{e}</code>"
                 )
                 input_path.unlink(missing_ok=True)
                 return
@@ -226,8 +256,8 @@ class SpatialAudioHandler:
                 logger.info(f"Using cached result for {task_id}")
                 
                 await status_msg.edit_text(
-                    "✅ **Processing Complete!**\n\n"
-                    "📦 _From cache (instant)_"
+                    "✅ <b>Processing Complete!</b>\n\n"
+                    "<i>From cache (instant)</i>"
                 )
                 
                 try:
@@ -255,9 +285,9 @@ class SpatialAudioHandler:
                 try:
                     if task.status == "completed":
                         await status_msg.edit_text(
-                            "✅ **Processing Complete!**\n\n"
-                            f"⏱️ Time: `{task.result['duration']:.1f}s`\n"
-                            f"📊 Size: `{task.result['output_size'] / 1024:.1f}KB`"
+                            "✅ <b>Processing Complete!</b>\n\n"
+                            f"⏱️ Time: de>{task.result['duration']:.1f}s</code>\n"
+                            f"📊 Size: de>{task.result['output_size'] / 1024:.1f}KB</code>"
                         )
                         
                         # Cache result
@@ -277,8 +307,8 @@ class SpatialAudioHandler:
                     elif task.status == "failed":
                         error_msg = task.error or "Unknown error"
                         await status_msg.edit_text(
-                            f"❌ **Processing Failed**\n\n"
-                            f"`{error_msg}`"
+                            f"❌ <b>Processing Failed</b>\n\n"
+                            f"de>{error_msg}</code>"
                         )
                 
                 except Exception as e:
@@ -300,7 +330,7 @@ class SpatialAudioHandler:
             
             if not success:
                 user_processing[user_id] = max(0, user_processing.get(user_id, 0) - 1)
-                await status_msg.edit_text("❌ **Queue full**. Try again later!")
+                await status_msg.edit_text("❌ <b>Queue full</b>. Try again later!")
                 input_path.unlink(missing_ok=True)
                 return
             
@@ -308,7 +338,7 @@ class SpatialAudioHandler:
         
         except Exception as e:
             logger.error(f"Error in spatialize handler: {e}")
-            await message.reply_text(f"❌ **Error:**\n`{e}`")
+            await message.reply_text(f"❌ <b>Error:</b>\nde>{e}</code>")
             input_path.unlink(missing_ok=True)
 
 
@@ -325,9 +355,8 @@ async def cmd_spatialize(client: Client, message: Message):
         preset = args[1].lower()
         if preset not in PRESETS:
             await message.reply_text(
-                f"❌ **Unknown preset: {preset}**\n\n"
-                + list_presets(),
-                parse_mode="markdown"
+                f"❌ <b>Unknown preset: {preset}</b>\n\n"
+                + list_presets()
             )
             return
     
@@ -342,39 +371,39 @@ async def cmd_preset_specific(client: Client, message: Message, preset_name: str
 async def cmd_help(client: Client, message: Message):
     """Handle /spatialize_help command"""
     help_text = f"""
-🎵 **Spatial Audio Help**
+🎵 <b>Spatial Audio Help</b>
 
-**Commands:**
-• `/spatialize [preset]` - Convert audio to 3D spatial (binaural)
-• `/cinema` - Cinema preset shortcut
-• `/maxwide` - MaxWide preset shortcut
-• `/bassboost` - BassBoost preset shortcut
-• `/spatialize_help` - Show this help
-• `/spatialize_stats` - Show system stats
+<b>Commands:</b>
+• de>/spatialize [preset]</code> - Convert audio to 3D spatial (binaural)
+• de>/cinema</code> - Cinema preset shortcut
+• de>/maxwide</code> - MaxWide preset shortcut
+• de>/bassboost</code> - BassBoost preset shortcut
+• de>/spatialize_help</code> - Show this help
+• de>/spatialize_stats</code> - Show system stats
 
-**Available Presets:**
+<b>Available Presets:</b>
 {list_presets()}
 
 {get_preset_help()}
 
-**Examples:**
-• `/spatialize` - Use default (cinema) preset
-• `/spatialize cinema [audio]` - Explicit preset
-• `/cinema [audio]` - Direct command
+<b>Examples:</b>
+• de>/spatialize</code> - Use default (cinema) preset
+• de>/spatialize cinema</code> - Explicit preset
+• de>/cinema</code> - Direct command
 
-**Limits:**
+<b>Limits:</b>
 • Max file: {MAX_FILE_SIZE / (1024*1024):.0f} MB
 • Max duration: {MAX_DURATION}s ({MAX_DURATION//60}m)
 • Max 10 requests/hour
 • Max 2 concurrent
 
-**Tips:**
+<b>Tips:</b>
 🎧 Best with headphones!
 📱 Works with MP3, WAV, M4A, FLAC, OGG
 ⚡ Results are cached for 24 hours
     """
     
-    await message.reply_text(help_text, parse_mode="markdown")
+    await message.reply_text(help_text)
 
 
 async def cmd_stats(client: Client, message: Message):
@@ -384,27 +413,27 @@ async def cmd_stats(client: Client, message: Message):
     user_tasks = worker.get_user_tasks(message.from_user.id)
     
     stats_text = f"""
-📊 **System Statistics**
+📊 <b>System Statistics</b>
 
-**Processing Queue:**
-• Active tasks: `{worker_stats['active_tasks']}`
-• Queue size: `{worker_stats['queue_size']}`
-• Completed: `{worker_stats['completed']}`
-• Failed: `{worker_stats['failed']}`
-• Avg time: `{worker_stats['avg_processing_time']:.1f}s`
+<b>Processing Queue:</b>
+• Active tasks: de>{worker_stats['active_tasks']}</code>
+• Queue size: de>{worker_stats['queue_size']}</code>
+• Completed: de>{worker_stats['completed']}</code>
+• Failed: de>{worker_stats['failed']}</code>
+• Avg time: de>{worker_stats['avg_processing_time']:.1f}s</code>
 
-**Cache Status:**
-• Files: `{cache_stats['total_files']}`
-• Used: `{cache_stats['total_size_mb']} MB / {cache_stats['max_size_mb']} MB`
-• Usage: `{cache_stats['usage_percent']}%`
+<b>Cache Status:</b>
+• Files: de>{cache_stats['total_files']}</code>
+• Used: de>{cache_stats['total_size_mb']} MB / {cache_stats['max_size_mb']} MB</code>
+• Usage: de>{cache_stats['usage_percent']}%</code>
 
-**Your Tasks:**
-• Active: `{len([t for t in user_tasks if t.status in ['queued', 'processing']])}`
-• Completed: `{len([t for t in user_tasks if t.status == 'completed'])}`
-• Total: `{len(user_tasks)}`
+<b>Your Tasks:</b>
+• Active: de>{len([t for t in user_tasks if t.status in ['queued', 'processing']])}</code>
+• Completed: de>{len([t for t in user_tasks if t.status == 'completed'])}</code>
+• Total: de>{len(user_tasks)}</code>
     """
     
-    await message.reply_text(stats_text, parse_mode="markdown")
+    await message.reply_text(stats_text)
 
 
 # ============================================================================
