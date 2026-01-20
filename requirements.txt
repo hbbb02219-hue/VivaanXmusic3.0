@@ -1,54 +1,67 @@
+# -----------------------------------------------
+# 🔸 StrangerMusic Project
+# 🔹 Developed & Maintained by: Shashank Shukla (https://github.com/itzshukla)
+# 📅 Copyright © 2022 – All Rights Reserved
+#
+# 📖 License:
+# This source code is open for educational and non-commercial use ONLY.
+# You are required to retain this credit in all copies or substantial portions of this file.
+# Commercial use, redistribution, or removal of this notice is strictly prohibited
+# without prior written permission from the author.
+#
+# ❤️ Made with dedication and love by ItzShukla
+# -----------------------------------------------
+
 aiofiles
 aiohttp
 apscheduler
+asyncio
+bard 
 beautifulsoup4
 bs4
-deepai
 dnspython
-edge-tts
+emojis
 ffmpeg-python
-future
 gitpython
-google-api-python-client
 gpytranslate
 gtts
 hachoir
 heroku3
-httpx[http2]==0.27.2
-kurigram==2.2.13
+httpx
+instaloader
 lexica-api
-motor
-nekosbest
+motor 
 numpy
 opencv-python
-pillow==12.0.0
+pillow==9.5.0
 psutil
-ntgcalls==2.0.6
-py-tgcalls==2.2.8
+pickledb
+pycountry
 pycryptodome
 pydub
 pyfiglet
-pyshorteners
+pykeyboard
 python-dotenv
 python-whois
+pyshorteners
+pyttsx3
+pytz
+pyrofork
+py-tgcalls
+pyrofork
 pyyaml
+py-yt-search
 qrcode
 requests
+SafoneAPI
 speedtest-cli
 SpeechRecognition
+search_engine_parser
 spotipy
 telegraph
 tgcrypto
 unidecode
 wget
-yt-dlp==2025.10.22
 youtube-search
 youtube-search-python
-
-# ============================================================================
-# SPATIAL AUDIO MODULE (NEW - Added for binaural/Dolby processing)
-# ============================================================================
-scipy==1.11.1
-soundfile==0.12.1
-librosa==0.10.0
-aiofiles==23.1.0
+yt-dlp
