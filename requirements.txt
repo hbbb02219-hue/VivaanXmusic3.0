@@ -30,7 +30,6 @@ pyfiglet
 pyshorteners
 python-dotenv
 python-whois
-git+https://github.com/BillaSpace/youtube-search-python.git
 pyyaml
 qrcode
 requests
@@ -42,3 +41,5 @@ tgcrypto
 unidecode
 wget
 yt-dlp==2025.10.14
+
+youtube-search-python==1.6.6
