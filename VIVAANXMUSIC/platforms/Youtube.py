@@ -13,7 +13,7 @@ from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from youtubesearchpython import VideosSearch, CustomSearch
+from youtubesearchpython.__future__ import VideosSearch, CustomSearch
 import base64
 from VIVAANXMUSIC import LOGGER
 from VIVAANXMUSIC.utils.database import is_on_off
@@ -63,12 +63,12 @@ async def check_file_size(link):
     info = await get_format_info(link)
     if info is None:
         return None
-    
+
     formats = info.get('formats', [])
     if not formats:
         print("No formats found.")
         return None
-    
+
     total_size = parse_size(formats)
     return total_size
 
@@ -166,7 +166,7 @@ class YouTubeAPI:
             link = link.split("?si=")[0]
         elif "&si=" in link:
             link = link.split("&si=")[0]
-            
+
         results = VideosSearch(link, limit=1)
         for result in (await results.next())["result"]:
             title = result["title"]
@@ -425,23 +425,23 @@ class YouTubeAPI:
         async def download_with_requests_fallback(url, filepath, headers=None):
             try:
                 session = create_session()
-                
+
                 # Use headers for authentication (including x-api-key)
                 response = session.get(url, headers=headers, stream=True, timeout=60)
                 response.raise_for_status()
-                
+
                 total_size = int(response.headers.get('content-length', 0))
                 downloaded = 0
                 chunk_size = 1024 * 1024 
-                
+
                 with open(filepath, 'wb') as file:
                     for chunk in response.iter_content(chunk_size=chunk_size):
                         if chunk:
                             file.write(chunk)
                             downloaded += len(chunk)
-                
+
                 return filepath
-                
+
             except Exception as e:
                 logger.error(f"Requests download failed: {str(e)}")
                 if os.path.exists(filepath):
@@ -458,20 +458,20 @@ class YouTubeAPI:
                 if not YTPROXY:
                     logger.error("API Endpoint not set in config\nPlease set a valid endpoint for YTPROXY_URL in config.")
                     return None
-                
+
                 headers = {
                     "x-api-key": f"{YT_API_KEY}",
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                 }
-                
+
                 filepath = os.path.join("downloads", f"{vid_id}.mp3")
-                
+
                 if os.path.exists(filepath):
                     return filepath
-                
+
                 session = create_session()
                 getAudio = session.get(f"{YTPROXY}/info/{vid_id}", headers=headers, timeout=60)
-                
+
                 try:
                     songData = getAudio.json()
                 except Exception as e:
@@ -479,39 +479,39 @@ class YouTubeAPI:
                     return None
                 finally:
                     session.close()
-                
+
                 status = songData.get('status')
                 if status == 'success':
                     audio_url = songData['audio_url']
                     #audio_url = base64.b64decode(songlink).decode() remove in 3.5.0
-                    
+
                     result = await download_with_ytdlp(audio_url, filepath, headers)
                     if result:
                         return result
-                    
+
                     result = await download_with_requests_fallback(audio_url, filepath, headers)
                     if result:
                         return result
-                    
+
                     return None
-                    
+
                 elif status == 'error':
                     logger.error(f"API Error: {songData.get('message', 'Unknown error from API.')}")
                     return None
                 else:
                     logger.error("Could not fetch Backend \nPlease contact API provider.")
                     return None
-                    
+
             except requests.exceptions.RequestException as e:
                 logger.error(f"Network error while fetching audio info: {str(e)}")
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid response from proxy: {str(e)}")
             except Exception as e:
                 logger.error(f"Error in audio download: {str(e)}")
-            
+
             return None
-        
-        
+
+
         async def video_dl(vid_id):
             try:
                 if not YT_API_KEY:
@@ -520,20 +520,20 @@ class YouTubeAPI:
                 if not YTPROXY:
                     logger.error("API Endpoint not set in config\nPlease set a valid endpoint for YTPROXY_URL in config.")
                     return None
-                
+
                 headers = {
                     "x-api-key": f"{YT_API_KEY}",
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                 }
-                
+
                 filepath = os.path.join("downloads", f"{vid_id}.mp4")
-                
+
                 if os.path.exists(filepath):
                     return filepath
-                
+
                 session = create_session()
                 getVideo = session.get(f"{YTPROXY}/info/{vid_id}", headers=headers, timeout=60)
-                
+
                 try:
                     videoData = getVideo.json()
                 except Exception as e:
@@ -541,38 +541,38 @@ class YouTubeAPI:
                     return None
                 finally:
                     session.close()
-                
+
                 status = videoData.get('status')
                 if status == 'success':
                     video_url = videoData['video_url']
                     #video_url = base64.b64decode(videolink).decode() removed in 3.5.0
-                    
+
                     result = await download_with_ytdlp(video_url, filepath, headers)
                     if result:
                         return result
-                    
+
                     result = await download_with_requests_fallback(video_url, filepath, headers)
                     if result:
                         return result
-                    
+
                     return None
-                    
+
                 elif status == 'error':
                     logger.error(f"API Error: {videoData.get('message', 'Unknown error from API.')}")
                     return None
                 else:
                     logger.error("Could not fetch Backend \nPlease contact API provider.")
                     return None
-                    
+
             except requests.exceptions.RequestException as e:
                 logger.error(f"Network error while fetching video info: {str(e)}")
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid response from proxy: {str(e)}")
             except Exception as e:
                 logger.error(f"Error in video download: {str(e)}")
-            
+
             return None
-        
+
         def song_video_dl():
             formats = f"{format_id}+140"
             fpath = f"downloads/{title}"
@@ -626,5 +626,5 @@ class YouTubeAPI:
         else:
             direct = True
             downloaded_file = await audio_dl(vid_id)
-        
+
         return downloaded_file, direct
