@@ -2,7 +2,6 @@ aiofiles
 aiohttp
 apscheduler
 asyncio
-bing_image_downloader
 bs4
 deepai
 edge-tts
@@ -18,8 +17,6 @@ kurigram==2.2.13
 lexica-api
 motor
 nekosbest
-numpy
-opencv-python
 pillow==12.0.0
 psutil
 ntgcalls==2.0.6
